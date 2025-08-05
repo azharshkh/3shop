@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import "./HomePage.css";
 
 const branchNames = {
   1: "Salar Nagar",
@@ -6,10 +7,19 @@ const branchNames = {
   3: "Aqsa Nagar"
 };
 
-function HomePage() {
-  const [branchNumber, setBranchNumber] = useState(1); // Simulate login
+const credentials = {
+  "salar nagar": 1,
+  "malik nagar": 2,
+  "aqsa nagar": 3
+};
 
-  const otherBranches = [1, 2, 3].filter((b) => b !== branchNumber);
+function HomePage() {
+  const [loggedIn, setLoggedIn] = useState(false);
+  const [branchNumber, setBranchNumber] = useState(null);
+  const [viewBranch, setViewBranch] = useState(null);
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
 
   const [entries, setEntries] = useState([
     {
@@ -23,6 +33,49 @@ function HomePage() {
       }
     }
   ]);
+
+  useEffect(() => {
+    const stored = localStorage.getItem("rememberedBranch");
+    if (stored && credentials[stored]) {
+      const bn = credentials[stored];
+      setBranchNumber(bn);
+      setViewBranch([1, 2, 3].find((b) => b !== bn));
+      setLoggedIn(true);
+    }
+  }, []);
+
+  const handleLogin = () => {
+    const lowerUser = username.trim().toLowerCase();
+    const lowerPass = password.trim().toLowerCase();
+
+    if (credentials[lowerUser] && lowerUser === lowerPass) {
+      const bn = credentials[lowerUser];
+      setBranchNumber(bn);
+      setViewBranch([1, 2, 3].find((b) => b !== bn));
+      setLoggedIn(true);
+
+      if (rememberMe) {
+        localStorage.setItem("rememberedBranch", lowerUser);
+      }
+    } else {
+      alert("Invalid credentials");
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("rememberedBranch");
+    setLoggedIn(false);
+    setBranchNumber(null);
+    setUsername("");
+    setPassword("");
+    setRememberMe(false);
+  };
+
+  const toggleViewBranch = () => {
+    const others = [1, 2, 3].filter((b) => b !== branchNumber);
+    const next = others.find((b) => b !== viewBranch) || others[0];
+    setViewBranch(next);
+  };
 
   const updateOwnField = (index, field, value) => {
     const updated = [...entries];
@@ -56,7 +109,7 @@ function HomePage() {
       req.status = "Approved";
     } else {
       req.qty = 0;
-      req.status = "--";
+      req.status = "Rejected";
     }
     setEntries(updated);
   };
@@ -64,7 +117,6 @@ function HomePage() {
   const handleUpdateAll = () => {
     console.log("Updating inventory for branch", branchNumber);
     console.log(entries);
-    // TODO: Push to Firebase here
   };
 
   const addRow = () => {
@@ -81,116 +133,134 @@ function HomePage() {
     setEntries([...entries, empty]);
   };
 
+  if (!loggedIn) {
+    return (
+      <div className="login-wrapper">
+        <div className="login-container">
+          <h2>Branch Login</h2>
+
+          <select
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+          >
+            <option value="">-- Select Branch --</option>
+            <option value="salar nagar">Salar Nagar</option>
+            <option value="malik nagar">Malik Nagar</option>
+            <option value="aqsa nagar">Aqsa Nagar</option>
+          </select>
+
+          <input
+            type="password"
+            placeholder="Password (same as branch name)"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+
+          <label className="remember-label">
+            <input
+              type="checkbox"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+            />
+            Remember Me
+          </label>
+
+          <button onClick={handleLogin}>Login</button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div>
-      <h1>3 SHOP - {branchNames[branchNumber]}</h1>
-      <button onClick={() => setBranchNumber((prev) => (prev % 3) + 1)}>
-        Switch to {branchNames[(branchNumber % 3) + 1]}
-      </button>
+    <div className="main-wrapper">
+      <div className="container">
+        <h1>Branch: {branchNames[branchNumber]}</h1>
 
-      <table border="1" cellPadding="5">
-        <thead>
-          <tr>
-            <th>Item</th>
-            <th>Qty ({branchNames[branchNumber]})</th>
-            <th>Unit</th>
+        <div className="top-buttons">
+          <button onClick={handleLogout}>Logout</button>
+          <button onClick={toggleViewBranch}>Show {branchNames[viewBranch]}</button>
+        </div>
 
-            {otherBranches.map((b) => (
-              <th key={`qty-${b}`}>Qty ({branchNames[b]})</th>
-            ))}
-
-            {otherBranches.map((b) => (
-              <th key={`req-${b}`}>Request → {branchNames[b]}</th>
-            ))}
-
-            {otherBranches.map((b) => (
-              <th key={`status-${b}`}>Status → {branchNames[b]}</th>
-            ))}
-
-            {otherBranches.map((b) => (
-              <th key={`from-${b}`}>From {branchNames[b]}</th>
-            ))}
-
-            {otherBranches.map((b) => (
-              <th key={`fromstat-${b}`}>Approve/Reject</th>
-            ))}
-          </tr>
-        </thead>
-
-        <tbody>
-          {entries.map((entry, index) => (
-            <tr key={index}>
-              <td>
-                <input
-                  type="text"
-                  value={entry.item}
-                  onChange={(e) => updateOwnField(index, "item", e.target.value)}
-                />
-              </td>
-              <td>
-                <input
-                  type="number"
-                  value={entry.quantities[branchNumber]}
-                  onChange={(e) => updateOwnQuantity(index, e.target.value)}
-                />
-              </td>
-              <td>
-                <input
-                  type="text"
-                  value={entry.unit}
-                  onChange={(e) => updateOwnField(index, "unit", e.target.value)}
-                />
-              </td>
-
-              {otherBranches.map((b) => (
-                <td key={`qty-${b}`}>{entry.quantities[b]}</td>
+        <div className="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Qty ({branchNames[branchNumber]})</th>
+                <th>Unit</th>
+                <th>Qty ({branchNames[viewBranch]})</th>
+                <th>Request → {branchNames[viewBranch]}</th>
+                <th>Status → {branchNames[viewBranch]}</th>
+                <th>From {branchNames[viewBranch]}</th>
+                <th>Approve/Reject</th>
+              </tr>
+            </thead>
+            <tbody>
+              {entries.map((entry, index) => (
+                <tr key={index}>
+                  <td>
+                    <input
+                      type="text"
+                      value={entry.item}
+                      onChange={(e) => updateOwnField(index, "item", e.target.value)}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="number"
+                      value={entry.quantities[branchNumber]}
+                      onChange={(e) => updateOwnQuantity(index, e.target.value)}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="text"
+                      value={entry.unit}
+                      onChange={(e) => updateOwnField(index, "unit", e.target.value)}
+                    />
+                  </td>
+                  <td>{entry.quantities[viewBranch]}</td>
+                  <td>
+                    <input
+                      type="number"
+                      value={entry.requests[branchNumber][viewBranch].qty}
+                      onChange={(e) => {
+                        const val = [...entries];
+                        val[index].requests[branchNumber][viewBranch].qty = Number(e.target.value);
+                        setEntries(val);
+                      }}
+                    />
+                    <button onClick={() => updateRequest(index, viewBranch)}>Send</button>
+                  </td>
+                  <td>
+                    <span className={`status ${entry.requests[branchNumber][viewBranch].status.toLowerCase()}`}>
+                      {entry.requests[branchNumber][viewBranch].status}
+                    </span>
+                  </td>
+                  <td>{entry.requests[viewBranch][branchNumber].qty}</td>
+                  <td>
+                    {entry.requests[viewBranch][branchNumber].status === "Requested" ? (
+                      <>
+                        <button onClick={() => handleApproval(index, viewBranch, true)}>✔</button>
+                        <button onClick={() => handleApproval(index, viewBranch, false)}>✖</button>
+                      </>
+                    ) : (
+                      <span className={`status ${entry.requests[viewBranch][branchNumber].status.toLowerCase()}`}>
+                        {entry.requests[viewBranch][branchNumber].status}
+                      </span>
+                    )}
+                  </td>
+                </tr>
               ))}
+            </tbody>
+          </table>
+        </div>
 
-              {otherBranches.map((b) => (
-                <td key={`rq-${b}`}>
-                  <input
-                    type="number"
-                    value={entry.requests[branchNumber][b].qty}
-                    onChange={(e) => {
-                      const val = [...entries];
-                      val[index].requests[branchNumber][b].qty = Number(e.target.value);
-                      setEntries(val);
-                    }}
-                  />
-                  <button onClick={() => updateRequest(index, b)}>Send</button>
-                </td>
-              ))}
-
-              {otherBranches.map((b) => (
-                <td key={`stat-${b}`}>
-                  {entry.requests[branchNumber][b].status}
-                </td>
-              ))}
-
-              {otherBranches.map((b) => (
-                <td key={`from-${b}`}>{entry.requests[b][branchNumber].qty}</td>
-              ))}
-
-              {otherBranches.map((b) => (
-                <td key={`frombtn-${b}`}>
-                  {entry.requests[b][branchNumber].status === "Requested" ? (
-                    <>
-                      <button onClick={() => handleApproval(index, b, true)}>✔</button>
-                      <button onClick={() => handleApproval(index, b, false)}>✖</button>
-                    </>
-                  ) : (
-                    entry.requests[b][branchNumber].status
-                  )}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      <br />
-      <button onClick={addRow}>Add Item</button>
-      <button onClick={handleUpdateAll}>Update Inventory</button>
+        <div className="button-group">
+          <button onClick={addRow}>Add Item</button>
+          <button onClick={handleUpdateAll}>Update Inventory</button>
+        </div>
+      </div>
     </div>
   );
 }
